@@ -13,7 +13,7 @@ function createProgressBar() {
 }
 
 async function worker(postgres, data) {
-  await postgres.students.insertMany(data);
+  postgres.students.insertMany(data);
 }
 
 async function deleteExistingPostgresData(postgres) {
