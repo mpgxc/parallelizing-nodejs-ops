@@ -1,35 +1,49 @@
-import { faker } from '@faker-js/faker';
-import { getMongoConnection, getPostgresConnection } from './db.js'
+import { faker } from "@faker-js/faker";
+import { getMongoConnection, getPostgresConnection } from "./db/index.js";
 
 async function seedMongoDB(amount) {
-    const { students, client } = await getMongoConnection()
-    console.log('deleting all students')
-    await students.deleteMany({})
-    let person = []
-    console.log(`inserting ${amount} students`)
+  const { students, client } = await getMongoConnection();
+  console.log("Deleting all students from MongoDB");
 
-    for (let i = 0; i < amount; i++) {
+  await students.deleteMany({});
+  console.log(`Inserting ${amount} students into MongoDB`);
 
-        person.push({
-            name: faker.person.fullName(),
-            email: faker.internet.email(),
-            age: faker.number.int(18, 60),
-            registeredAt: faker.date.past(),
-        })
-    }
+  const batchSize = 1000;
+  for (let i = 0; i < amount; i += batchSize) {
+    const persons = Array.from(
+      { length: Math.min(batchSize, amount - i) },
+      () => ({
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        age: faker.number.int({ min: 18, max: 60 }),
+        registeredAt: faker.date.past(),
+      })
+    );
 
-    await students.insertMany(person)
+    await students.insertMany(persons);
+  }
 
-    console.log('done inserting!')
-    await client.close()
+  console.log("Done inserting into MongoDB!");
+
+  await client.close();
 }
 
-async function seedPostegres() {
-    const db = await getPostgresConnection()
-    console.log('creating table students')
-    await db.students.createTable()
-    console.log('table students created with success')
-    await db.client.end()
+async function seedPostgres() {
+  const db = await getPostgresConnection();
+
+  // await db.client.schema.dropTableIfExists("students");
+
+  await db.students.createTable();
 }
-await seedMongoDB(1_000_000)
-await seedPostegres()
+
+async function seedDatabases() {
+  try {
+    await Promise.all([seedMongoDB(1_000_000), seedPostgres()]);
+
+    process.exit(0);
+  } catch (error) {
+    console.error("Error seeding databases:", error);
+  }
+}
+
+seedDatabases();
