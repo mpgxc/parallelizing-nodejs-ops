@@ -1,5 +1,5 @@
+import { Queue, Worker } from "bullmq";
 import cliProgress from "cli-progress";
-import fastq from "fastq";
 import { getMongoConnection, getPostgresConnection } from "./db/index.js";
 
 function createProgressBar() {
@@ -12,9 +12,7 @@ function createProgressBar() {
   );
 }
 
-async function worker(postgres, data) {
-  postgres.students.insertMany(data);
-}
+// async function worker(postgres, data) {}
 
 async function deleteExistingPostgresData(postgres) {
   await postgres.students.deleteAll();
@@ -40,17 +38,40 @@ await deleteExistingPostgresData(postgres);
 const total = await mongo.students.countDocuments();
 progress.start(total, 0);
 
-const queue = fastq.promise((data) => worker(postgres, data), 100);
-
 console.time("Processing time");
 
+const queue = new Queue("queue", {
+  connection: {
+    host: "localhost",
+    port: 6379,
+  },
+});
+
+const worker = new Worker(
+  "queue",
+  async (job) => {
+    await postgres.students.insertMany(job.data);
+  },
+  {
+    useWorkerThreads: true,
+    concurrency: 99,
+    connection: {
+      host: "localhost",
+      port: 6379,
+    },
+  }
+);
+
 for await (const data of getAllPagedData(mongo, 10000)) {
-  await queue.push(data);
+  await queue.add("insert", data, {
+    removeOnComplete: true,
+  });
 
   progress.increment(data.length);
 }
 
-await queue.drain();
+worker.run();
+
 progress.stop();
 console.timeEnd("Processing time");
 

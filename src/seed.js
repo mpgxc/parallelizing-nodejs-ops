@@ -29,7 +29,7 @@ async function seedMongoDB(amount) {
 }
 
 async function seedPostgres() {
-  const db = await getPostgresConnection();
+  const db = await getPostgresConnection({ useNativeDriver: true });
 
   // await db.client.schema.dropTableIfExists("students");
 

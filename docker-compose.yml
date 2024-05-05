@@ -17,3 +17,9 @@ services:
       POSTGRES_DB: school
       POSTGRES_USER: erickwendel
       POSTGRES_PASSWORD: mypassword
+
+  redis-queue:
+    image: redis
+    ports:
+      - "6379:6379"
+    
